@@ -31,6 +31,10 @@ export const loadGTFSData = async (
   try {
     progressCallback?.('Downloading GTFS data...');
     const response = await fetch(gtfsUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download GTFS data: ${response.status} ${response.statusText}`);
+    }
+    
     const arrayBuffer = await response.arrayBuffer();
     const jszip = await import('jszip');
     

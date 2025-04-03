@@ -7,7 +7,8 @@ import MapComponent from '@/components/MapComponent';
 import ControlPanel from '@/components/ControlPanel';
 import { Stop, TransportMode } from '@/types/gtfs';
 
-const MUNICH_GTFS_URL = 'https://www.mvg.de/.rest/gtfs/mvg/gtfs.zip';
+// Update to the new Germany-wide GTFS dataset
+const GTFS_URL = 'https://download.gtfs.de/germany/free/latest.zip';
 
 const Index: React.FC = () => {
   const { toast } = useToast();
@@ -47,7 +48,7 @@ const Index: React.FC = () => {
         });
         
         const { stops, routes, trips, stopTimes } = await loadGTFSData(
-          MUNICH_GTFS_URL,
+          GTFS_URL,
           (message) => console.log(message)
         );
         

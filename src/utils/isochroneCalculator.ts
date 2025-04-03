@@ -68,7 +68,7 @@ const buildTravelTimePoints = async (stop: Stop): Promise<FeatureCollection<Poin
       originPoint,
       distance,
       bearing,
-      'kilometers' // Fixed: Use string literal instead of object
+      'kilometers'
     );
     
     // Add the point with a simulated travel time
@@ -108,8 +108,9 @@ const generateIsochrone = async (
     if (origin) {
       // Create a proper circle instead of using buffer
       const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
+      // Create a circle with proper GeoJSON point feature
       return turf.circle(
-        origin.geometry.coordinates,
+        origin, // Pass the full feature point, not just coordinates
         circleRadius, 
         { steps: 64, units: 'kilometers' }
       );
@@ -124,7 +125,7 @@ const generateIsochrone = async (
     const concave = turf.concave(
       pointsWithinTime, 
       1, // maxEdge in kilometers
-      'kilometers' // Fixed: Use string literal instead of object
+      'kilometers'
     );
     
     // If concave hull succeeded, return it
@@ -146,7 +147,7 @@ const generateIsochrone = async (
   if (origin) {
     // Create a circle instead of using buffer
     return turf.circle(
-      origin.geometry.coordinates,
+      origin, // Pass the full feature point, not just coordinates
       0.5 * timeThreshold / 15, // Scale based on time
       { steps: 64, units: 'kilometers' }
     );
@@ -170,7 +171,7 @@ const findNearestPoints = (
       distance: turf.distance(
         coordPoint,
         point,
-        'kilometers' // Fixed: Use string literal instead of object
+        'kilometers'
       )
     }))
     .sort((a, b) => a.distance - b.distance)
