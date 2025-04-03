@@ -68,7 +68,7 @@ const buildTravelTimePoints = async (stop: Stop): Promise<FeatureCollection<Poin
       originPoint,
       distance,
       bearing,
-      { units: 'kilometers' }
+      'kilometers' // Fixed: Use string literal instead of object
     );
     
     // Add the point with a simulated travel time
@@ -123,7 +123,7 @@ const generateIsochrone = async (
     const concave = turf.concave(
       pointsWithinTime, 
       1, // maxEdge in kilometers
-      { units: 'kilometers' }
+      'kilometers' // Fixed: Use string literal instead of object
     );
     
     // If concave hull succeeded, return it
@@ -170,7 +170,7 @@ const findNearestPoints = (
       distance: turf.distance(
         coordPoint,
         point,
-        { units: 'kilometers' }
+        'kilometers' // Fixed: Use string literal instead of object
       )
     }))
     .sort((a, b) => a.distance - b.distance)
@@ -213,4 +213,3 @@ const pointInTriangle = (
   // Check if point is in triangle
   return (u >= 0) && (v >= 0) && (u + v < 1);
 };
-
