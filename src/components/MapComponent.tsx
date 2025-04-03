@@ -25,7 +25,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const mapInitialized = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   
-  const MUNICH_CENTER = [11.576124, 48.137154]; // Longitude, latitude of Munich
+  // Define Munich center coordinates as [longitude, latitude]
+  const MUNICH_CENTER: [number, number] = [11.576124, 48.137154];
 
   // Initialize map
   useEffect(() => {
@@ -88,7 +89,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
         type: 'Feature',
         geometry: {
           type: 'Point',
-          coordinates: [stop.stop_lon, stop.stop_lat]
+          coordinates: [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())]
         },
         properties: {
           id: stop.stop_id,
@@ -105,7 +106,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       const bounds = new mapboxgl.LngLatBounds();
       
       selectedStops.forEach((stop) => {
-        bounds.extend([stop.stop_lon, stop.stop_lat]);
+        bounds.extend([parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())] as [number, number]);
       });
       
       // Add some padding to make sure all stops are visible
