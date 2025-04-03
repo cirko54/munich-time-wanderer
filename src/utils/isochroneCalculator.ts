@@ -1,7 +1,7 @@
 
 import { Stop } from '@/types/gtfs';
 import * as turf from '@turf/turf';
-import { Feature, Point, Position, FeatureCollection, Polygon, MultiPolygon, Properties } from 'geojson';
+import { Feature, Point, Position, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 
 // Function to calculate isochrones for a given stop
 export const calculateIsochrone = async (
@@ -28,8 +28,9 @@ export const calculateIsochrone = async (
     .filter(Boolean) as Feature<Point, { travelTime: number }>[];
   
   // Add the origin point itself with travel time 0
+  const originCoords = [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())];
   stopPoints.push(turf.point(
-    [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())],
+    originCoords,
     { travelTime: 0 }
   ) as Feature<Point, { travelTime: number }>);
   
@@ -57,7 +58,7 @@ export const calculateIsochrone = async (
         console.error(`Error calculating isochrone for ${minutes} minutes:`, error);
         // Return a small circle around the stop as fallback
         return turf.circle(
-          [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())],
+          originCoords, 
           0.5 * minutes / 15, 
           { 
             steps: 64, 
@@ -152,10 +153,11 @@ const interpolateWithTIN = (
     // Find the origin point (with travel time 0)
     const origin = points.features.find(p => p.properties.travelTime === 0);
     if (origin) {
+      const circleOptions = { steps: 64, units: 'kilometers' };
       return turf.circle(
-        origin.geometry.coordinates as Position,
+        origin.geometry.coordinates,
         0.5 * timeThreshold / 15, // Scale based on time
-        { steps: 64, units: 'kilometers' }
+        circleOptions
       ) as Feature<Polygon>;
     } else {
       throw new Error('No origin point found and no isolines generated');
@@ -165,8 +167,18 @@ const interpolateWithTIN = (
   // Convert isolines to polygons and merge them
   const polygons = isolines.features.map(line => {
     try {
-      // Use polygon to convert line to polygon
-      return turf.polygon([line.geometry.coordinates[0] as Position[]], line.properties);
+      // Use polygon to convert line to polygon - ensuring it's a closed LineString
+      const coords = line.geometry.coordinates;
+      const firstCoord = coords[0][0];
+      const lastCoord = coords[0][coords[0].length - 1];
+      
+      // Check if the line is closed
+      if (firstCoord[0] !== lastCoord[0] || firstCoord[1] !== lastCoord[1]) {
+        // If not closed, close it
+        coords[0].push(firstCoord);
+      }
+      
+      return turf.polygon([coords[0] as Position[]], line.properties) as Feature<Polygon>;
     } catch (error) {
       console.error('Error converting line to polygon:', error);
       return null;
@@ -178,11 +190,13 @@ const interpolateWithTIN = (
   }
   
   // Union all polygons to create a single multipolygon
-  let merged;
+  let merged: Feature<Polygon | MultiPolygon>;
   try {
     merged = polygons.reduce((union, polygon) => {
-      return turf.union(union, polygon) || union;
-    });
+      if (!union) return polygon;
+      const result = turf.union(union, polygon);
+      return result || union;
+    }) as Feature<Polygon | MultiPolygon>;
   } catch (error) {
     console.error('Error merging polygons:', error);
     // Return the first polygon as fallback
@@ -194,16 +208,16 @@ const interpolateWithTIN = (
 
 // Helper function to find nearest points
 const findNearestPoints = (
-  coord: number[],
+  coord: Position,
   points: Feature<Point, { travelTime: number }>[],
   count: number
-) => {
+): { point: Feature<Point, { travelTime: number }>; distance: number }[] => {
   return points
     .map(point => ({
       point,
       distance: turf.distance(
-        coord, 
-        point.geometry.coordinates, 
+        turf.point(coord), 
+        turf.point(point.geometry.coordinates), 
         { units: 'kilometers' }
       )
     }))
@@ -213,15 +227,24 @@ const findNearestPoints = (
 
 // Helper function to check if a point is inside a triangle
 const pointInTriangle = (
-  point: number[],
-  v1: number[],
-  v2: number[],
-  v3: number[]
+  point: Position,
+  v1: Position,
+  v2: Position,
+  v3: Position
 ): boolean => {
   // Compute vectors
-  const v0 = [v3[0] - v1[0], v3[1] - v1[1]];
-  const v2v = [v2[0] - v1[0], v2[1] - v1[1]];
-  const pv = [point[0] - v1[0], point[1] - v1[1]];
+  const v0 = [
+    v3[0] - v1[0],
+    v3[1] - v1[1]
+  ];
+  const v2v = [
+    v2[0] - v1[0],
+    v2[1] - v1[1]
+  ];
+  const pv = [
+    point[0] - v1[0],
+    point[1] - v1[1]
+  ];
   
   // Compute dot products
   const dot00 = v0[0] * v0[0] + v0[1] * v0[1];
