@@ -106,11 +106,14 @@ const generateIsochrone = async (
     // Find the origin point (with travel time 0)
     const origin = points.features.find(p => p.properties.travelTime === 0);
     if (origin) {
+      // Create a proper point feature for buffer
+      // Fixed: Create a proper point feature instead of just passing coordinates
       const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
-      return turf.circle(
-        origin.geometry.coordinates,
+      const originPoint = turf.point(origin.geometry.coordinates);
+      return turf.buffer(
+        originPoint,
         circleRadius, 
-        { steps: 64, units: 'kilometers' }
+        { steps: 64, units: 'kilometers' } // Use object format for buffer options
       );
     } else {
       throw new Error('No origin point found and no isolines generated');
@@ -148,7 +151,7 @@ const generateIsochrone = async (
     return turf.buffer(
       originPoint,
       0.5 * timeThreshold / 15, // Scale based on time
-      { steps: 64, units: 'kilometers' }
+      { steps: 64, units: 'kilometers' } // Use object format for buffer options
     );
   }
   
