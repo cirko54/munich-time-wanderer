@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { loadGTFSData, filterStopsForMunich, getConnectedStops } from '@/utils/gtfsParser';
@@ -126,7 +127,7 @@ const Index: React.FC = () => {
           description: `Processing isochrones for ${stop.stop_name}...`,
         });
         
-        // Calculate isochrones - fixed to match the function's expected parameters
+        // Calculate isochrones with the correct parameters
         const isochrones = await calculateIsochrone(
           stop,
           [15, 30, 45, 60].filter(time => time <= timeRadiusMinutes)

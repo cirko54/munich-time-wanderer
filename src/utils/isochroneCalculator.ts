@@ -1,3 +1,4 @@
+
 import { Stop } from '@/types/gtfs';
 import * as turf from '@turf/turf';
 import { Feature, Point, Position, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
@@ -118,9 +119,11 @@ const generateIsochrone = async (
   
   // Create concave hull from the points
   try {
+    // Use maxEdge as a separate parameter, not in an options object
     const concave = turf.concave(
       pointsWithinTime, 
-      { maxEdge: 1, units: 'kilometers' }
+      1, // maxEdge in kilometers
+      { units: 'kilometers' }
     );
     
     // If concave hull succeeded, return it
@@ -140,8 +143,10 @@ const generateIsochrone = async (
   // If all else fails, create a buffer around the origin
   const origin = points.features.find(p => p.properties.travelTime === 0);
   if (origin) {
+    // Create a proper point feature for buffer
+    const originPoint = turf.point(origin.geometry.coordinates);
     return turf.buffer(
-      origin.geometry.coordinates,
+      originPoint,
       0.5 * timeThreshold / 15, // Scale based on time
       { steps: 64, units: 'kilometers' }
     );
@@ -156,11 +161,14 @@ const findNearestPoints = (
   points: Feature<Point, { travelTime: number }>[],
   count: number
 ): { point: Feature<Point, { travelTime: number }>; distance: number }[] => {
+  // Create a proper point feature for distance calculation
+  const coordPoint = turf.point(coord);
+  
   return points
     .map(point => ({
       point,
       distance: turf.distance(
-        turf.point(coord),
+        coordPoint,
         point,
         { units: 'kilometers' }
       )
@@ -205,3 +213,4 @@ const pointInTriangle = (
   // Check if point is in triangle
   return (u >= 0) && (v >= 0) && (u + v < 1);
 };
+
