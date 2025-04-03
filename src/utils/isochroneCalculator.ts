@@ -90,8 +90,7 @@ const interpolateWithTIN = (
   ];
   
   // Create a grid of points to interpolate over
-  const gridOptions = { units: 'kilometers' as const };
-  const grid = turf.pointGrid(expandedBbox, cellSize, gridOptions);
+  const grid = turf.pointGrid(expandedBbox, cellSize, { units: 'kilometers' as const });
   
   // For each grid point, interpolate the travel time using the TIN
   const interpolatedPoints = grid.features.map(point => {
@@ -166,7 +165,7 @@ const interpolateWithTIN = (
   const polygons = isolines.features.map(line => {
     try {
       // Use polygon to convert line to polygon
-      return turf.polygon([line.geometry.coordinates[0]], line.properties);
+      return turf.polygon([line.geometry.coordinates[0] as turf.Position[]], line.properties);
     } catch (error) {
       console.error('Error converting line to polygon:', error);
       return null;

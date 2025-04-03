@@ -13,8 +13,7 @@ const Index: React.FC = () => {
   const { toast } = useToast();
   
   // State for map and controls
-  const [mapToken, setMapToken] = useState<string>('');
-  const [showSettings, setShowSettings] = useState<boolean>(!mapToken);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
   
   // State for stops and routes
   const [stops, setStops] = useState<Stop[]>([]);
@@ -113,7 +112,7 @@ const Index: React.FC = () => {
     );
   }, []);
   
-  // Mock function to simulate isochrone calculation
+  // Function to calculate isochrones
   const calculateIsochrones = useCallback(async () => {
     if (selectedStops.length === 0 || selectedModes.length === 0) return;
     
@@ -166,29 +165,6 @@ const Index: React.FC = () => {
     }
   }, [selectedStops, selectedModes, timeRadiusMinutes, toast]);
   
-  // Check for mapbox token in localStorage on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem('mapbox-token');
-    if (savedToken) {
-      setMapToken(savedToken);
-      setShowSettings(false);
-    } else {
-      setShowSettings(true);
-    }
-  }, []);
-  
-  // Save mapbox token to localStorage when it changes
-  useEffect(() => {
-    if (mapToken) {
-      localStorage.setItem('mapbox-token', mapToken);
-    }
-  }, [mapToken]);
-  
-  // Handle map token change
-  const handleMapTokenChange = useCallback((token: string) => {
-    setMapToken(token);
-  }, []);
-  
   // Handle settings toggle
   const handleToggleSettings = useCallback(() => {
     setShowSettings(prev => !prev);
@@ -211,10 +187,9 @@ const Index: React.FC = () => {
               onToggleMode={handleToggleMode}
               onCalculateIsochrones={calculateIsochrones}
               isLoading={isLoading}
-              mapToken={mapToken}
-              onMapTokenChange={handleMapTokenChange}
               showSettings={showSettings}
               onToggleSettings={handleToggleSettings}
+              // Remove mapToken props
             />
           </div>
           
@@ -224,7 +199,7 @@ const Index: React.FC = () => {
               selectedStops={selectedStops}
               isochroneData={isochroneData}
               isLoading={isLoading}
-              mapToken={mapToken}
+              // mapToken is no longer needed but will be kept as optional for compatibility
             />
           </div>
         </div>
