@@ -28,10 +28,10 @@ interface ControlPanelProps {
   onToggleMode: (mode: TransportMode) => void;
   onCalculateIsochrones: () => void;
   isLoading: boolean;
-  mapToken: string;
-  onMapTokenChange: (token: string) => void;
   showSettings: boolean;
   onToggleSettings: () => void;
+  mapToken?: string;
+  onMapTokenChange?: (token: string) => void;
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -45,8 +45,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onToggleMode,
   onCalculateIsochrones,
   isLoading,
-  mapToken,
-  onMapTokenChange,
+  mapToken = '', // Default value
+  onMapTokenChange = () => {}, // Default no-op function
   showSettings,
   onToggleSettings,
 }) => {
@@ -73,15 +73,17 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         {showSettings ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="mapbox-token">Mapbox Token</Label>
-              <Input
-                id="mapbox-token"
-                placeholder="Enter your Mapbox public token here"
-                value={mapToken}
-                onChange={(e) => onMapTokenChange(e.target.value)}
-              />
+              <Label htmlFor="mapbox-token">Map Settings</Label>
+              {mapToken !== undefined && onMapTokenChange !== undefined && (
+                <Input
+                  id="mapbox-token"
+                  placeholder="Enter your Mapbox public token here"
+                  value={mapToken}
+                  onChange={(e) => onMapTokenChange(e.target.value)}
+                />
+              )}
               <p className="text-xs text-muted-foreground">
-                Create a free account at <a href="https://www.mapbox.com" target="_blank" rel="noopener noreferrer" className="underline">mapbox.com</a> to get a token
+                Using OpenStreetMap - free and open data
               </p>
             </div>
           </div>
@@ -144,7 +146,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <Button 
               className="w-full" 
               onClick={onCalculateIsochrones}
-              disabled={selectedStops.length === 0 || selectedModes.length === 0 || isLoading || !mapToken}
+              disabled={selectedStops.length === 0 || selectedModes.length === 0 || isLoading}
             >
               {isLoading ? (
                 <>

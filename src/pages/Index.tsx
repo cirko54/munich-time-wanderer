@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { loadGTFSData, filterStopsForMunich, getConnectedStops } from '@/utils/gtfsParser';
@@ -189,7 +188,6 @@ const Index: React.FC = () => {
               isLoading={isLoading}
               showSettings={showSettings}
               onToggleSettings={handleToggleSettings}
-              // Remove mapToken props
             />
           </div>
           
@@ -199,7 +197,6 @@ const Index: React.FC = () => {
               selectedStops={selectedStops}
               isochroneData={isochroneData}
               isLoading={isLoading}
-              // mapToken is no longer needed but will be kept as optional for compatibility
             />
           </div>
         </div>

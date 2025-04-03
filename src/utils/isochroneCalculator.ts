@@ -1,6 +1,7 @@
 
 import { Stop } from '@/types/gtfs';
 import * as turf from '@turf/turf';
+import { Feature, Point, Position, FeatureCollection, Polygon, MultiPolygon, Properties } from 'geojson';
 
 // Function to calculate isochrones for a given stop
 export const calculateIsochrone = async (
@@ -8,7 +9,7 @@ export const calculateIsochrone = async (
   connectedStops: { stopId: string; travelTime: number }[],
   stopsMap: Map<string, Stop>,
   timeThresholds: number[] = [15, 30, 45, 60]
-): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[]> => {
+): Promise<Feature<Polygon | MultiPolygon>[]> => {
   // Get all stops within our dataset
   const stopPoints = connectedStops
     .filter(connection => stopsMap.has(connection.stopId))
@@ -22,18 +23,18 @@ export const calculateIsochrone = async (
         { 
           travelTime: connection.travelTime
         }
-      );
+      ) as Feature<Point, { travelTime: number }>;
     })
-    .filter(Boolean) as turf.Feature<turf.Point, { travelTime: number }>[];
+    .filter(Boolean) as Feature<Point, { travelTime: number }>[];
   
   // Add the origin point itself with travel time 0
   stopPoints.push(turf.point(
     [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())],
     { travelTime: 0 }
-  ));
+  ) as Feature<Point, { travelTime: number }>);
   
   // Create a feature collection from all the points
-  const pointsCollection = turf.featureCollection(stopPoints);
+  const pointsCollection = turf.featureCollection(stopPoints) as FeatureCollection<Point, { travelTime: number }>;
   
   // Calculate the isochrones for each time threshold
   const isochrones = await Promise.all(
@@ -51,7 +52,7 @@ export const calculateIsochrone = async (
           properties: {
             contour: minutes
           }
-        } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+        } as Feature<Polygon | MultiPolygon>;
       } catch (error) {
         console.error(`Error calculating isochrone for ${minutes} minutes:`, error);
         // Return a small circle around the stop as fallback
@@ -60,10 +61,10 @@ export const calculateIsochrone = async (
           0.5 * minutes / 15, 
           { 
             steps: 64, 
-            units: 'kilometers' as const,
+            units: 'kilometers',
             properties: { contour: minutes } 
           }
-        );
+        ) as Feature<Polygon>;
       }
     })
   );
@@ -73,10 +74,10 @@ export const calculateIsochrone = async (
 
 // Function to interpolate travel times using TIN (Triangulated Irregular Network)
 const interpolateWithTIN = (
-  points: turf.FeatureCollection<turf.Point, { travelTime: number }>,
+  points: FeatureCollection<Point, { travelTime: number }>,
   timeThreshold: number,
   cellSize: number
-): turf.Feature<turf.Polygon | turf.MultiPolygon> => {
+): Feature<Polygon | MultiPolygon> => {
   // Create a TIN (triangulated irregular network) from the points
   const tin = turf.tin(points, 'travelTime');
   
@@ -90,7 +91,7 @@ const interpolateWithTIN = (
   ];
   
   // Create a grid of points to interpolate over
-  const grid = turf.pointGrid(expandedBbox, cellSize, { units: 'kilometers' as const });
+  const grid = turf.pointGrid(expandedBbox, cellSize, { units: 'kilometers' });
   
   // For each grid point, interpolate the travel time using the TIN
   const interpolatedPoints = grid.features.map(point => {
@@ -108,8 +109,8 @@ const interpolateWithTIN = (
         triangleFound = true;
         
         // Get travel times for each vertex
-        const travelTimes = triangle.properties?.points.map((point: any) => 
-          point.properties.travelTime
+        const travelTimes = triangle.properties?.points.map((p: any) => 
+          p.properties.travelTime
         );
         
         // Simple average interpolation (could be improved with barycentric)
@@ -152,10 +153,10 @@ const interpolateWithTIN = (
     const origin = points.features.find(p => p.properties.travelTime === 0);
     if (origin) {
       return turf.circle(
-        origin.geometry.coordinates,
+        origin.geometry.coordinates as Position,
         0.5 * timeThreshold / 15, // Scale based on time
-        { steps: 64, units: 'kilometers' as const }
-      );
+        { steps: 64, units: 'kilometers' }
+      ) as Feature<Polygon>;
     } else {
       throw new Error('No origin point found and no isolines generated');
     }
@@ -165,12 +166,12 @@ const interpolateWithTIN = (
   const polygons = isolines.features.map(line => {
     try {
       // Use polygon to convert line to polygon
-      return turf.polygon([line.geometry.coordinates[0] as turf.Position[]], line.properties);
+      return turf.polygon([line.geometry.coordinates[0] as Position[]], line.properties);
     } catch (error) {
       console.error('Error converting line to polygon:', error);
       return null;
     }
-  }).filter(Boolean) as turf.Feature<turf.Polygon>[];
+  }).filter(Boolean) as Feature<Polygon>[];
   
   if (polygons.length === 0) {
     throw new Error('Failed to create valid polygons from isolines');
@@ -194,13 +195,17 @@ const interpolateWithTIN = (
 // Helper function to find nearest points
 const findNearestPoints = (
   coord: number[],
-  points: turf.Feature<turf.Point, { travelTime: number }>[],
+  points: Feature<Point, { travelTime: number }>[],
   count: number
 ) => {
   return points
     .map(point => ({
       point,
-      distance: turf.distance(coord, point.geometry.coordinates, { units: 'kilometers' as const })
+      distance: turf.distance(
+        coord, 
+        point.geometry.coordinates, 
+        { units: 'kilometers' }
+      )
     }))
     .sort((a, b) => a.distance - b.distance)
     .slice(0, count);

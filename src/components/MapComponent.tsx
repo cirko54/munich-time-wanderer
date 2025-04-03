@@ -1,195 +1,180 @@
 
-import React, { useRef, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 import { Stop } from '@/types/gtfs';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-type MapComponentProps = {
+// Fix Leaflet marker icon issues in React/webpack
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Fix default icon issue
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
+interface MapComponentProps {
   selectedStops: Stop[];
   isochroneData: Record<string, GeoJSON.Feature[]>;
   isLoading: boolean;
-  mapToken?: string; // Not needed for OSM but keeping for backward compatibility
-};
+}
+
+const MUNICH_CENTER = { lat: 48.137154, lng: 11.576124 };
+const DEFAULT_ZOOM = 12;
+
+// Colors for isochrone contours
+const ISOCHRONE_COLORS = [
+  '#3388ff', // 15min
+  '#33a02c', // 30min
+  '#ff7f00', // 45min
+  '#e31a1c', // 60min
+];
 
 const MapComponent: React.FC<MapComponentProps> = ({ 
   selectedStops, 
-  isochroneData, 
-  isLoading,
+  isochroneData,
+  isLoading 
 }) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const mapInitialized = useRef(false);
-  const [mapReady, setMapReady] = useState(false);
-  const layersRef = useRef<Record<string, L.Layer>>({});
-  
-  // Define Munich center coordinates as [latitude, longitude] for Leaflet
-  const MUNICH_CENTER: [number, number] = [48.137154, 11.576124];
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const isochroneLayersRef = useRef<Record<string, L.GeoJSON>>({});
+  const stopMarkersRef = useRef<Record<string, L.Marker>>({});
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || mapInitialized.current) return;
+    if (mapContainerRef.current && !mapRef.current) {
+      const map = L.map(mapContainerRef.current).setView([MUNICH_CENTER.lat, MUNICH_CENTER.lng], DEFAULT_ZOOM);
+      
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+      
+      mapRef.current = map;
+    }
     
-    // We need to dynamically import Leaflet because it relies on window object
-    const initializeMap = async () => {
-      try {
-        // Dynamic import of leaflet
-        const L = await import('leaflet');
-        
-        // Create map
-        map.current = L.map(mapContainer.current).setView(MUNICH_CENTER, 11);
-        
-        // Add OpenStreetMap tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-        }).addTo(map.current);
-        
-        // Add scale control
-        L.control.scale().addTo(map.current);
-        
-        mapInitialized.current = true;
-        setMapReady(true);
-      } catch (error) {
-        console.error('Error initializing map:', error);
-      }
-    };
-    
-    initializeMap();
-
+    // Cleanup on unmount
     return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
-      mapInitialized.current = false;
     };
   }, []);
 
-  // Update stops on the map
+  // Add/remove stops on the map
   useEffect(() => {
-    if (!map.current || !mapReady) return;
+    if (!mapRef.current) return;
     
-    const updateStops = async () => {
-      try {
-        const L = await import('leaflet');
+    const map = mapRef.current;
+    const currentStopIds = new Set(selectedStops.map(stop => stop.stop_id));
+    
+    // Remove markers for stops that are no longer selected
+    Object.keys(stopMarkersRef.current).forEach(stopId => {
+      if (!currentStopIds.has(stopId)) {
+        map.removeLayer(stopMarkersRef.current[stopId]);
+        delete stopMarkersRef.current[stopId];
+      }
+    });
+    
+    // Add markers for newly selected stops
+    selectedStops.forEach(stop => {
+      if (!stopMarkersRef.current[stop.stop_id]) {
+        const lat = parseFloat(stop.stop_lat.toString());
+        const lng = parseFloat(stop.stop_lon.toString());
         
-        // Clear existing stop markers
-        Object.entries(layersRef.current).forEach(([key, layer]) => {
-          if (key.startsWith('stop-')) {
-            map.current?.removeLayer(layer);
-            delete layersRef.current[key];
-          }
-        });
-        
-        // Add markers for each stop
-        selectedStops.forEach(stop => {
-          const marker = L.marker(
-            [parseFloat(stop.stop_lat.toString()), parseFloat(stop.stop_lon.toString())],
-            {
-              title: stop.stop_name,
-              icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color:#0066b4; width:12px; height:12px; border-radius:6px; border:2px solid white;"></div>`,
-                iconSize: [16, 16],
-                iconAnchor: [8, 8],
-              })
-            }
-          );
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const marker = L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup(`<b>${stop.stop_name}</b><br>ID: ${stop.stop_id}`);
           
-          marker.bindPopup(`<b>${stop.stop_name}</b>`);
-          marker.addTo(map.current!);
-          layersRef.current[`stop-${stop.stop_id}`] = marker;
-        });
-        
-        // If there are stops, fit the map to show them all
-        if (selectedStops.length > 0) {
-          const bounds = L.latLngBounds(
-            selectedStops.map(stop => [
-              parseFloat(stop.stop_lat.toString()), 
-              parseFloat(stop.stop_lon.toString())
-            ] as [number, number])
-          );
-          
-          // Add some padding to make sure all stops are visible
-          map.current.fitBounds(bounds, { padding: [100, 100] });
+          stopMarkersRef.current[stop.stop_id] = marker;
         }
-      } catch (error) {
-        console.error('Error updating stops:', error);
       }
-    };
+    });
     
-    updateStops();
-  }, [selectedStops, mapReady]);
+    // Adjust view if we have stops
+    if (selectedStops.length > 0 && Object.keys(stopMarkersRef.current).length > 0) {
+      const bounds = L.latLngBounds(
+        Object.values(stopMarkersRef.current).map(marker => marker.getLatLng())
+      );
+      map.fitBounds(bounds.pad(0.3));
+    }
+  }, [selectedStops]);
 
-  // Update isochrones on the map
+  // Add/remove isochrones on the map
   useEffect(() => {
-    if (!map.current || !mapReady) return;
+    if (!mapRef.current) return;
     
-    const updateIsochrones = async () => {
-      try {
-        const L = await import('leaflet');
-        
-        // Remove any existing isochrone layers
-        Object.entries(layersRef.current).forEach(([key, layer]) => {
-          if (key.startsWith('isochrone-')) {
-            map.current?.removeLayer(layer);
-            delete layersRef.current[key];
-          }
-        });
-        
-        // Add new isochrone layers for each stop
-        Object.entries(isochroneData).forEach(([stopId, features], stopIndex) => {
-          // Add layers for each isochrone contour
-          features.forEach((feature, i) => {
-            const minutes = feature.properties?.contour;
-            const stopInfo = selectedStops.find(s => s.stop_id === stopId);
-            const layerId = `isochrone-${stopId}-${i}`;
-            
-            // Color based on the stop index (to differentiate stops) and contour time
-            const baseHue = (210 + (stopIndex * 30)) % 360; // Different hue for each stop
-            const saturation = 80 - (i * 10); // Decreasing saturation for longer times
-            const lightness = 50 + (i * 5); // Increasing lightness for longer times
-            
-            const geoJsonLayer = L.geoJSON(feature as GeoJSON.Feature, {
-              style: {
-                fillColor: `hsl(${baseHue}, ${saturation}%, ${lightness}%)`,
-                fillOpacity: 0.3,
-                color: `hsl(${baseHue}, ${saturation - 10}%, ${lightness - 10}%)`,
-                weight: 1
-              }
-            });
-            
-            geoJsonLayer.bindPopup(`
-              <div>
-                <h3 style="font-weight:bold;">${stopInfo?.stop_name || 'Selected Stop'}</h3>
-                <p>${minutes} minute travel time</p>
-              </div>
-            `);
-            
-            geoJsonLayer.addTo(map.current!);
-            layersRef.current[layerId] = geoJsonLayer;
-          });
-        });
-      } catch (error) {
-        console.error('Error updating isochrones:', error);
+    const map = mapRef.current;
+    const currentIsochroneIds = new Set(Object.keys(isochroneData));
+    
+    // Remove isochrone layers that are no longer in the data
+    Object.keys(isochroneLayersRef.current).forEach(stopId => {
+      if (!currentIsochroneIds.has(stopId)) {
+        map.removeLayer(isochroneLayersRef.current[stopId]);
+        delete isochroneLayersRef.current[stopId];
       }
-    };
+    });
     
-    updateIsochrones();
-  }, [isochroneData, selectedStops, mapReady]);
+    // Add or update isochrone layers in the data
+    Object.entries(isochroneData).forEach(([stopId, features]) => {
+      // Remove existing layer if any
+      if (isochroneLayersRef.current[stopId]) {
+        map.removeLayer(isochroneLayersRef.current[stopId]);
+      }
+      
+      if (features && features.length > 0) {
+        // Sort features by contour time (ascending)
+        const sortedFeatures = [...features].sort((a, b) => 
+          (a.properties?.contour || 0) - (b.properties?.contour || 0)
+        );
+        
+        // Create a new layer
+        const layer = L.geoJSON(sortedFeatures as any, {
+          style: (feature) => {
+            const minutes = feature?.properties?.contour || 15;
+            const colorIndex = Math.min(
+              Math.floor(minutes / 15) - 1, 
+              ISOCHRONE_COLORS.length - 1
+            );
+            
+            return {
+              fillColor: ISOCHRONE_COLORS[colorIndex] || ISOCHRONE_COLORS[0],
+              weight: 1,
+              opacity: 0.8,
+              color: 'white',
+              dashArray: '3',
+              fillOpacity: 0.3
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const minutes = feature.properties?.contour || 15;
+            layer.bindTooltip(`${minutes} minutes`);
+          }
+        }).addTo(map);
+        
+        isochroneLayersRef.current[stopId] = layer;
+      }
+    });
+  }, [isochroneData]);
 
   return (
-    <div className="relative w-full h-full rounded-lg overflow-hidden border">
-      <div ref={mapContainer} className="absolute inset-0" />
-      
+    <div className="relative h-full w-full rounded-lg overflow-hidden border border-gray-200">
       {isLoading && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center">
           <div className="flex flex-col items-center">
-            <Loader2 className="h-8 w-8 text-primary animate-spin mb-2" />
-            <p className="text-sm text-muted-foreground">Calculating isochrones...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="mt-2 text-sm font-medium">Calculating isochrones...</p>
           </div>
         </div>
       )}
+      <div ref={mapContainerRef} className="h-full w-full" />
     </div>
   );
 };
