@@ -1,13 +1,11 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Stop } from '@/types/gtfs';
 import L from 'leaflet';
 
-// Import Leaflet CSS directly (not using the path that's causing the error)
-import 'leaflet/dist/leaflet.css';
+// Import Leaflet CSS from a CDN instead of direct import
+// This avoids the build error with leaflet.css
 
 // We need to handle Leaflet marker icons specially in React
-// Instead of importing from leaflet/dist/images, we'll define them here
 const DefaultIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -47,6 +45,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const mapRef = useRef<L.Map | null>(null);
   const isochroneLayersRef = useRef<Record<string, L.GeoJSON>>({});
   const stopMarkersRef = useRef<Record<string, L.Marker>>({});
+
+  // Add leaflet CSS dynamically
+  useEffect(() => {
+    // Only add if it doesn't exist
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+  }, []);
 
   // Initialize map
   useEffect(() => {

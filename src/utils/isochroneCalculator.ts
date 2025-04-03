@@ -1,4 +1,3 @@
-
 import { Stop } from '@/types/gtfs';
 import * as turf from '@turf/turf';
 import { Feature, Point, Position, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
@@ -50,8 +49,9 @@ const buildTravelTimePoints = async (stop: Stop): Promise<FeatureCollection<Poin
   const stopPoints: Feature<Point, { travelTime: number }>[] = [];
   
   // Add the origin point itself with travel time 0
+  const originCoord: Position = [stopLon, stopLat];
   const originPoint = turf.point(
-    [stopLon, stopLat],
+    originCoord,
     { travelTime: 0 }
   );
   stopPoints.push(originPoint as Feature<Point, { travelTime: number }>);
@@ -67,7 +67,7 @@ const buildTravelTimePoints = async (stop: Stop): Promise<FeatureCollection<Poin
       originPoint,
       distance,
       bearing,
-      { units: 'kilometers' as turf.Units }
+      { units: 'kilometers' }
     );
     
     // Add the point with a simulated travel time
@@ -105,12 +105,12 @@ const generateIsochrone = async (
     // Find the origin point (with travel time 0)
     const origin = points.features.find(p => p.properties.travelTime === 0);
     if (origin) {
-      const circleOptions = { steps: 64, units: 'kilometers' as turf.Units };
+      const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
       return turf.circle(
-        origin as turf.AllGeoJSON,
-        0.5 * timeThreshold / 15, // Scale based on time
-        circleOptions
-      ) as Feature<Polygon>;
+        origin.geometry.coordinates,
+        circleRadius, 
+        { steps: 64, units: 'kilometers' }
+      );
     } else {
       throw new Error('No origin point found and no isolines generated');
     }
@@ -118,13 +118,13 @@ const generateIsochrone = async (
   
   // Create concave hull from the points
   try {
-    const concave = turf.concave(pointsWithinTime, {
-      maxEdge: 1,
-      units: 'kilometers' as turf.Units
-    });
+    const concave = turf.concave(
+      pointsWithinTime, 
+      { maxEdge: 1, units: 'kilometers' }
+    );
     
     // If concave hull succeeded, return it
-    if (concave) return concave as Feature<Polygon>;
+    if (concave) return concave;
   } catch (error) {
     console.log('Concave hull failed, falling back to convex hull', error);
   }
@@ -132,7 +132,7 @@ const generateIsochrone = async (
   // If concave hull fails, try convex hull
   try {
     const convex = turf.convex(pointsWithinTime);
-    if (convex) return convex as Feature<Polygon>;
+    if (convex) return convex;
   } catch (error) {
     console.log('Convex hull failed, falling back to point buffer', error);
   }
@@ -141,10 +141,10 @@ const generateIsochrone = async (
   const origin = points.features.find(p => p.properties.travelTime === 0);
   if (origin) {
     return turf.buffer(
-      origin as turf.AllGeoJSON,
+      origin.geometry.coordinates,
       0.5 * timeThreshold / 15, // Scale based on time
-      { steps: 64, units: 'kilometers' as turf.Units }
-    ) as Feature<Polygon>;
+      { steps: 64, units: 'kilometers' }
+    );
   }
   
   throw new Error('Failed to generate isochrone');
@@ -161,8 +161,8 @@ const findNearestPoints = (
       point,
       distance: turf.distance(
         turf.point(coord),
-        turf.point(point.geometry.coordinates),
-        { units: 'kilometers' as turf.Units }
+        point,
+        { units: 'kilometers' }
       )
     }))
     .sort((a, b) => a.distance - b.distance)

@@ -126,20 +126,9 @@ const Index: React.FC = () => {
           description: `Processing isochrones for ${stop.stop_name}...`,
         });
         
-        // Get connected stops from this origin
-        const connectedStops = getConnectedStops(
-          stop.stop_id,
-          stopTimesRef.current,
-          tripsRef.current,
-          routesRef.current,
-          timeRadiusMinutes
-        );
-        
-        // Calculate isochrones
+        // Calculate isochrones - fixed to match the function's expected parameters
         const isochrones = await calculateIsochrone(
           stop,
-          connectedStops,
-          stopsMapRef.current,
           [15, 30, 45, 60].filter(time => time <= timeRadiusMinutes)
         );
         
