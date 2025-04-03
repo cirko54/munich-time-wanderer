@@ -1,5 +1,5 @@
 
-import { Stop, TransportMode } from '@/types/gtfs';
+import { Stop } from '@/types/gtfs';
 import * as turf from '@turf/turf';
 
 // Function to calculate isochrones for a given stop
