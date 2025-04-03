@@ -7,7 +7,7 @@ import MapComponent from '@/components/MapComponent';
 import ControlPanel from '@/components/ControlPanel';
 import { Stop, TransportMode } from '@/types/gtfs';
 
-// Update to the new Germany-wide GTFS dataset
+// GTFS Data URL - this will attempt to load but we have a fallback
 const GTFS_URL = 'https://download.gtfs.de/germany/free/latest.zip';
 
 const Index: React.FC = () => {
