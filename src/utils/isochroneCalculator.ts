@@ -8,7 +8,7 @@ export const calculateIsochrone = async (
   connectedStops: { stopId: string; travelTime: number }[],
   stopsMap: Map<string, Stop>,
   timeThresholds: number[] = [15, 30, 45, 60]
-): Promise<GeoJSON.Feature[]> => {
+): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[]> => {
   // Get all stops within our dataset
   const stopPoints = connectedStops
     .filter(connection => stopsMap.has(connection.stopId))
@@ -41,7 +41,6 @@ export const calculateIsochrone = async (
       try {
         // Create a grid of points
         const cellSize = 0.1; // km between points
-        const options = { property: 'travelTime', units: 'kilometers' as const };
         
         // Try with TIN interpolation first
         const tinResult = interpolateWithTIN(pointsCollection, minutes, cellSize);
@@ -52,14 +51,18 @@ export const calculateIsochrone = async (
           properties: {
             contour: minutes
           }
-        };
+        } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
       } catch (error) {
         console.error(`Error calculating isochrone for ${minutes} minutes:`, error);
         // Return a small circle around the stop as fallback
         return turf.circle(
           [parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())],
-          0.5 * minutes / 15, // scale the radius based on time
-          { steps: 64, units: 'kilometers', properties: { contour: minutes } }
+          0.5 * minutes / 15, 
+          { 
+            steps: 64, 
+            units: 'kilometers' as const,
+            properties: { contour: minutes } 
+          }
         );
       }
     })
@@ -152,7 +155,7 @@ const interpolateWithTIN = (
       return turf.circle(
         origin.geometry.coordinates,
         0.5 * timeThreshold / 15, // Scale based on time
-        { steps: 64, units: 'kilometers' }
+        { steps: 64, units: 'kilometers' as const }
       );
     } else {
       throw new Error('No origin point found and no isolines generated');
@@ -162,7 +165,8 @@ const interpolateWithTIN = (
   // Convert isolines to polygons and merge them
   const polygons = isolines.features.map(line => {
     try {
-      return turf.lineToPolygon(line);
+      // Use polygon to convert line to polygon
+      return turf.polygon([line.geometry.coordinates[0]], line.properties);
     } catch (error) {
       console.error('Error converting line to polygon:', error);
       return null;
@@ -197,7 +201,7 @@ const findNearestPoints = (
   return points
     .map(point => ({
       point,
-      distance: turf.distance(coord, point.geometry.coordinates, { units: 'kilometers' })
+      distance: turf.distance(coord, point.geometry.coordinates, { units: 'kilometers' as const })
     }))
     .sort((a, b) => a.distance - b.distance)
     .slice(0, count);
