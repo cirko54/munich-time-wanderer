@@ -106,14 +106,12 @@ const generateIsochrone = async (
     // Find the origin point (with travel time 0)
     const origin = points.features.find(p => p.properties.travelTime === 0);
     if (origin) {
-      // Create a proper point feature for buffer
-      // Fixed: Create a proper point feature instead of just passing coordinates
+      // Create a proper circle instead of using buffer
       const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
-      const originPoint = turf.point(origin.geometry.coordinates);
-      return turf.buffer(
-        originPoint,
+      return turf.circle(
+        origin.geometry.coordinates,
         circleRadius, 
-        { steps: 64, units: 'kilometers' } // Use object format for buffer options
+        { steps: 64, units: 'kilometers' }
       );
     } else {
       throw new Error('No origin point found and no isolines generated');
@@ -143,15 +141,14 @@ const generateIsochrone = async (
     console.log('Convex hull failed, falling back to point buffer', error);
   }
   
-  // If all else fails, create a buffer around the origin
+  // If all else fails, create a circle around the origin
   const origin = points.features.find(p => p.properties.travelTime === 0);
   if (origin) {
-    // Create a proper point feature for buffer
-    const originPoint = turf.point(origin.geometry.coordinates);
-    return turf.buffer(
-      originPoint,
+    // Create a circle instead of using buffer
+    return turf.circle(
+      origin.geometry.coordinates,
       0.5 * timeThreshold / 15, // Scale based on time
-      { steps: 64, units: 'kilometers' } // Use object format for buffer options
+      { steps: 64, units: 'kilometers' }
     );
   }
   
