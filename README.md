@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
 
-## Project info
+# Munich Transit Isochrones
 
-**URL**: https://lovable.dev/projects/de9e2861-a947-4302-aab9-cedfbf1210c0
+## Overview
 
-## How can I edit this code?
+This application visualizes public transport accessibility in Munich using isochrones - areas that can be reached within a certain time from a given location. Users can select transit stops, set time thresholds, and choose transport modes to generate interactive accessibility maps.
 
-There are several ways of editing your application.
+![Munich Transit Isochrones](https://res.cloudinary.com/dtbxqprod/image/upload/v1617365504/public/transit-isochrones.png)
 
-**Use Lovable**
+## Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/de9e2861-a947-4302-aab9-cedfbf1210c0) and start prompting.
+- Select multiple transit stops to analyze
+- Adjust time radius (5-60 minutes)
+- Filter by transport mode (Bus, Subway, Tram, Rail)
+- Interactive map visualization with color-coded isochrones
+- Real-time calculations
+- Fallback to precalculated data when GTFS source unavailable
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
+## Technical Details
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **React** and **TypeScript** for the frontend
+- **Leaflet** for the interactive map
+- **Turf.js** for geospatial calculations
+- **GTFS** (General Transit Feed Specification) data processing
+- **Tailwind CSS** and **shadcn/ui** for the user interface
 
-## How can I deploy this project?
+## Architecture
 
-Simply open [Lovable](https://lovable.dev/projects/de9e2861-a947-4302-aab9-cedfbf1210c0) and click on Share -> Publish.
+The application is structured into the following main components:
 
-## Can I connect a custom domain to my Lovable project?
+### Core Components
 
-Yes it is!
+- **MapComponent**: Interactive map display using Leaflet
+- **ControlPanel**: User interface for selecting stops, time thresholds, and modes
+- **StopSelector**: Search and selection interface for transit stops
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Utilities
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **GTFS Parsing**: Loading and processing transit data
+  - Parser for GTFS zip files
+  - Mock data generation for offline use
+  - Stop filtering by geographic area
+  - Transit connectivity analysis
+
+- **Isochrone Calculation**: Geospatial algorithms for accessibility visualization
+  - Point generation around transit stops
+  - Travel time simulation
+  - Concave/convex hull generation
+  - Fallback methods for edge cases
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 16 or higher
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+```sh
+git clone <repository_url>
+cd munich-transit-isochrones
+```
+
+2. Install dependencies
+```sh
+npm install
+```
+
+3. Start the development server
+```sh
+npm run dev
+```
+
+4. Open your browser and navigate to `http://localhost:5173`
+
+## Data Sources
+
+The application attempts to load GTFS data from Germany's open data portal. If this fails (e.g., due to CORS restrictions), it falls back to precalculated data for Munich's major transit stops.
+
+## Contributing
+
+Contributions are welcome! Here are some areas that could be improved:
+
+- Add more sophisticated routing algorithms
+- Improve performance for larger datasets
+- Add more visualization options
+- Support for real-time transit data
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).

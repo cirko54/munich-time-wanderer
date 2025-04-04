@@ -1,17 +1,37 @@
 
+/**
+ * Isochrone calculator - Main module for calculating time-based accessibility zones
+ * 
+ * This module orchestrates the isochrone calculation process by:
+ * 1. Taking a transit stop and time thresholds as inputs
+ * 2. Generating simulated points around the stop
+ * 3. Calculating isochrones for each time threshold
+ * 4. Adding visualization properties to the results
+ */
 import * as turf from '@turf/turf';
 import { Stop } from '@/types/gtfs';
+import { generateSimulatedPoints } from './isochroneUtils/pointGeneration';
+import { calculateIsochroneForThreshold, getColorForTime } from './isochroneUtils/isochroneGenerator';
+import { IsochroneOptions } from './isochroneUtils/types';
 
-// Utility function to calculate isochrones (reachable areas within time thresholds)
+/**
+ * Calculate isochrones (reachable areas within time thresholds) from a transit stop
+ * 
+ * @param stop - Transit stop to calculate isochrones from
+ * @param timeThresholds - Array of time thresholds in minutes
+ * @param options - Optional configuration for isochrone calculation
+ * @returns Array of GeoJSON features representing isochrones
+ */
 export const calculateIsochrone = async (
   stop: Stop,
-  timeThresholds: number[] // in minutes
+  timeThresholds: number[], // in minutes
+  options?: IsochroneOptions
 ): Promise<GeoJSON.Feature[]> => {
   // Convert the stop into a GeoJSON point
   const stopPoint = turf.point([parseFloat(stop.stop_lon.toString()), parseFloat(stop.stop_lat.toString())]);
   
   // Generate simulated points radiating from the stop
-  const simulatedPoints = generateSimulatedPoints(stopPoint, 15); // 15 km radius
+  const simulatedPoints = generateSimulatedPoints(stopPoint, options);
   
   // Create isochrones for each time threshold
   const isochrones: GeoJSON.Feature[] = [];
@@ -44,138 +64,6 @@ export const calculateIsochrone = async (
   return isochrones;
 };
 
-// Generate simulated points radiating from the stop
-const generateSimulatedPoints = (
-  origin: GeoJSON.Feature<GeoJSON.Point>,
-  maxDistance: number // in kilometers
-): GeoJSON.FeatureCollection<GeoJSON.Point> => {
-  const points: GeoJSON.Feature<GeoJSON.Point>[] = [];
-  
-  // Add the origin point itself
-  points.push(origin);
-  
-  // Generate points along radial lines
-  const numRadials = 24; // One every 15 degrees
-  const pointsPerRadial = 10; // 10 points along each radial
-  
-  for (let i = 0; i < numRadials; i++) {
-    const bearing = (i * 360) / numRadials;
-    
-    for (let j = 1; j <= pointsPerRadial; j++) {
-      const distance = (j / pointsPerRadial) * maxDistance;
-      
-      // Use turf.destination to calculate point at this distance and bearing
-      const point = turf.destination(
-        origin, // Pass the entire feature, not just coordinates
-        distance,
-        bearing,
-        'kilometers' // Pass the unit directly as a string, not as an object
-      );
-      
-      // Add the point with a simulated travel time
-      const simulatedTravelTime = calculateSimulatedTravelTime(distance);
-      
-      points.push(turf.point(point.geometry.coordinates, {
-        travelTime: simulatedTravelTime
-      }));
-    }
-  }
-  
-  return turf.featureCollection(points);
-};
-
-// Calculate a simulated travel time based on distance
-const calculateSimulatedTravelTime = (distance: number): number => {
-  // Assume an average speed of 30 km/h for urban transit
-  const averageSpeedKmh = 30;
-  
-  // Convert to minutes
-  return (distance / averageSpeedKmh) * 60;
-};
-
-// Calculate isochrone for a specific time threshold
-const calculateIsochroneForThreshold = async (
-  origin: GeoJSON.Feature<GeoJSON.Point>,
-  points: GeoJSON.FeatureCollection<GeoJSON.Point>,
-  timeThreshold: number
-): Promise<GeoJSON.Feature | null> => {
-  // Filter points that can be reached within the time threshold
-  const pointsWithinTime = turf.featureCollection(
-    points.features.filter(point => {
-      const travelTime = point.properties?.travelTime || 0;
-      return travelTime <= timeThreshold;
-    })
-  );
-  
-  // Special case for very small time thresholds
-  if (pointsWithinTime.features.length <= 3) {
-    // Create a simple circle for small time thresholds
-    if (origin) {
-      // Create a proper circle - Note: turf.circle signature is different than what we were using
-      const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
-      const options = { steps: 64, units: 'kilometers' as const };
-      return turf.circle(origin, circleRadius, options);
-    }
-    return null;
-  }
-  
-  try {
-    // Try to create a concave hull around the points
-    const concave = turf.concave(
-      pointsWithinTime, 
-      1, // maxEdge in kilometers
-      'kilometers' // Pass the unit directly as a string, not as an object
-    );
-    
-    // If concave hull succeeded, return it
-    return concave;
-  } catch (error) {
-    console.warn('Failed to create concave hull, falling back to convex hull', error);
-    
-    // Fallback to convex hull if concave fails
-    try {
-      return turf.convex(pointsWithinTime);
-    } catch (convexError) {
-      console.warn('Failed to create convex hull, falling back to circle', convexError);
-      
-      // Last resort: use a circle centered on the stop
-      if (origin) {
-        const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
-        const options = { steps: 64, units: 'kilometers' as const };
-        return turf.circle(origin, circleRadius, options);
-      }
-      
-      return null;
-    }
-  }
-};
-
-// Find the nearest N points to a given GeoJSON point
-export const findNearestPoints = (
-  point: GeoJSON.Position,
-  pointsCollection: GeoJSON.FeatureCollection<GeoJSON.Point>,
-  n: number = 5
-): GeoJSON.Feature<GeoJSON.Point>[] => {
-  const coordPoint = turf.point(point);
-  
-  return pointsCollection.features
-    .map(feature => ({
-      point: feature,
-      distance: turf.distance(
-        coordPoint,
-        feature,
-        'kilometers' // Pass the unit directly as a string, not as an object
-      )
-    }))
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, n)
-    .map(item => item.point);
-};
-
-// Get a color based on the time threshold
-const getColorForTime = (minutes: number): string => {
-  if (minutes <= 15) return '#1a9641';
-  if (minutes <= 30) return '#a6d96a';
-  if (minutes <= 45) return '#ffffc0';
-  return '#fdae61';
-};
+// Re-export utility functions for convenience
+export { findNearestPoints } from './isochroneUtils/pointGeneration';
+export { getColorForTime } from './isochroneUtils/isochroneGenerator';
