@@ -66,7 +66,7 @@ const generateSimulatedPoints = (
       
       // Use turf.destination to calculate point at this distance and bearing
       const point = turf.destination(
-        origin.geometry.coordinates,
+        origin, // Pass the entire feature, not just coordinates
         distance,
         bearing,
         {units: 'kilometers'}
@@ -114,9 +114,9 @@ const calculateIsochroneForThreshold = async (
       // Create a proper circle
       const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
       return turf.circle(
-        origin.geometry.coordinates,
+        origin, // Pass the entire feature, not just coordinates
         circleRadius,
-        {steps: 64, units: 'kilometers'}
+        { steps: 64, units: 'kilometers' }
       );
     }
     return null;
@@ -127,7 +127,7 @@ const calculateIsochroneForThreshold = async (
     const concave = turf.concave(
       pointsWithinTime, 
       1, // maxEdge in kilometers
-      {units: 'kilometers'}
+      { units: 'kilometers' }
     );
     
     // If concave hull succeeded, return it
@@ -144,9 +144,9 @@ const calculateIsochroneForThreshold = async (
       // Last resort: use a circle centered on the stop
       if (origin) {
         return turf.circle(
-          origin.geometry.coordinates,
+          origin, // Pass the entire feature, not just coordinates
           0.5 * timeThreshold / 15, // Scale based on time
-          {steps: 64, units: 'kilometers'}
+          { steps: 64, units: 'kilometers' }
         );
       }
       
@@ -164,12 +164,12 @@ export const findNearestPoints = (
   const coordPoint = turf.point(point);
   
   return pointsCollection.features
-    .map(point => ({
-      point,
+    .map(feature => ({
+      point: feature,
       distance: turf.distance(
         coordPoint,
-        point,
-        {units: 'kilometers'}
+        feature,
+        'kilometers'
       )
     }))
     .sort((a, b) => a.distance - b.distance)
