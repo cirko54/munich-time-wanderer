@@ -69,7 +69,7 @@ const generateSimulatedPoints = (
         origin, // Pass the entire feature, not just coordinates
         distance,
         bearing,
-        {units: 'kilometers'}
+        'kilometers' // Pass the unit directly as a string, not as an object
       );
       
       // Add the point with a simulated travel time
@@ -111,13 +111,10 @@ const calculateIsochroneForThreshold = async (
   if (pointsWithinTime.features.length <= 3) {
     // Create a simple circle for small time thresholds
     if (origin) {
-      // Create a proper circle
+      // Create a proper circle - Note: turf.circle signature is different than what we were using
       const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
-      return turf.circle(
-        origin, // Pass the entire feature, not just coordinates
-        circleRadius,
-        { steps: 64, units: 'kilometers' }
-      );
+      const options = { steps: 64, units: 'kilometers' as const };
+      return turf.circle(origin, circleRadius, options);
     }
     return null;
   }
@@ -127,7 +124,7 @@ const calculateIsochroneForThreshold = async (
     const concave = turf.concave(
       pointsWithinTime, 
       1, // maxEdge in kilometers
-      { units: 'kilometers' }
+      'kilometers' // Pass the unit directly as a string, not as an object
     );
     
     // If concave hull succeeded, return it
@@ -143,11 +140,9 @@ const calculateIsochroneForThreshold = async (
       
       // Last resort: use a circle centered on the stop
       if (origin) {
-        return turf.circle(
-          origin, // Pass the entire feature, not just coordinates
-          0.5 * timeThreshold / 15, // Scale based on time
-          { steps: 64, units: 'kilometers' }
-        );
+        const circleRadius = 0.5 * timeThreshold / 15; // Scale based on time
+        const options = { steps: 64, units: 'kilometers' as const };
+        return turf.circle(origin, circleRadius, options);
       }
       
       return null;
@@ -169,7 +164,7 @@ export const findNearestPoints = (
       distance: turf.distance(
         coordPoint,
         feature,
-        'kilometers'
+        'kilometers' // Pass the unit directly as a string, not as an object
       )
     }))
     .sort((a, b) => a.distance - b.distance)
